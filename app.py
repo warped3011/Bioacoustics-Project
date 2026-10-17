@@ -49,7 +49,7 @@ if st.button("Find birds", type="primary", disabled=sound is None, use_container
     if suffix not in {".wav", ".mp3", ".flac", ".ogg"}:
         suffix = ".wav"
     try:
-        with st.spinner("Listening for bird sounds… The first analysis may take a little longer."):
+        with st.spinner("BirdNET is checking your recording. The first analysis may take longer while the model starts. Keep this page open."):
             with tempfile.TemporaryDirectory(prefix="vizag_bird_finder_") as temp:
                 workspace = Path(temp)
                 audio_path = workspace / f"recording{suffix}"
@@ -78,7 +78,8 @@ if result:
     st.caption(f"Recording: {result['recording_name']}")
     detections = result["detections"]
     if not detections:
-        st.warning("No bird detections were found at this score. Try a clearer or longer recording, or lower the score in Optional settings.")
+        st.warning("I couldn't find a clear bird match in this recording. This doesn't mean there was no bird.")
+        st.markdown("Try a recording with the bird louder and less background noise. In **Optional settings**, lower the minimum score or turn off **Focus on birds expected near Vizag** to search more broadly.")
     else:
         best_by_species = {}
         for detection in detections:

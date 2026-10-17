@@ -55,6 +55,49 @@ def test_identify_calls_documented_analyzer_cli_and_reads_csv(tmp_path, monkeypa
     assert captured["kwargs"]["timeout"] == 900
 
 
+def test_identify_ignores_auxiliary_settings_csv_and_reads_nested_results(tmp_path, monkeypatch):
+    audio = tmp_path / "bird.wav"
+    audio.touch()
+    output = tmp_path / "output"
+
+    def fake_run(command, **kwargs):
+        (output / "nested").mkdir(parents=True, exist_ok=True)
+        (output / "analysis.csv").write_text(
+            "File splitting duration,Segment length,Sample rate,Segment overlap\n5,3,48000,0\n",
+            encoding="utf-8",
+        )
+        (output / "nested" / "combined.BirdNET.results.csv").write_text(
+            "Start (s),End (s),Scientific name,Common name,Confidence\n"
+            "0,3,Passer domesticus,House Sparrow,0.78\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
+    detections = identify_audio(audio, output)
+
+    assert len(detections) == 1
+    assert detections[0]["common_name"] == "House Sparrow"
+
+
+def test_identify_returns_empty_when_only_auxiliary_csv_is_produced(tmp_path, monkeypatch):
+    audio = tmp_path / "bird.wav"
+    audio.touch()
+    output = tmp_path / "output"
+
+    def fake_run(command, **kwargs):
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "settings.csv").write_text(
+            "File splitting duration,Segment length,Sample rate\n5,3,48000\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
+
+    assert identify_audio(audio, output) == []
+
+
 def test_identify_rejects_out_of_range_confidence(tmp_path):
     with pytest.raises(ValueError, match="between"):
         identify_audio(Path("audio.wav"), tmp_path, min_confidence=1.0)

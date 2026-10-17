@@ -52,6 +52,18 @@ def parse_detections(path: Path) -> list[dict[str, Any]]:
     return sorted(detections, key=lambda item: item["confidence"], reverse=True)
 
 
+def _is_detection_csv(path: Path) -> bool:
+    """Check a CSV header so auxiliary analyzer reports are never parsed as detections."""
+    try:
+        with path.open(newline="", encoding="utf-8-sig") as handle:
+            columns = {str(name).strip().casefold() for name in next(csv.reader(handle), [])}
+    except (OSError, UnicodeError, csv.Error):
+        return False
+    has_species = bool(columns & {"scientific name", "species", "label"})
+    has_score = bool(columns & {"confidence", "score", "probability"})
+    return has_species and has_score
+
+
 def identify_audio(audio_path: Path, output_dir: Path, *, threads: int = 2,
                    min_confidence: float = 0.2, python: str | None = None,
                    latitude: float | None = None, longitude: float | None = None) -> list[dict[str, Any]]:
@@ -82,7 +94,15 @@ def identify_audio(audio_path: Path, output_dir: Path, *, threads: int = 2,
         detail = (result.stderr or result.stdout)[-4000:]
         raise RuntimeError("BirdNET-Analyzer could not analyze this file. Confirm it is installed "
                            "in the app's Python environment and the audio format is supported.\n" + detail)
-    csv_files = sorted(output_dir.glob("*.csv"), key=lambda item: item.stat().st_mtime, reverse=True)
+    csv_files = [path for path in output_dir.rglob("*.csv") if _is_detection_csv(path)]
     if not csv_files:
-        raise RuntimeError("BirdNET finished without producing a CSV detection file.")
+        # BirdNET can emit auxiliary/settings CSVs even when it found no birds.
+        # Treat that as a no-detection result instead of surfacing a parser error.
+        return []
+    csv_files.sort(key=lambda path: (
+        "combined" not in path.name.casefold(),
+        "result" not in path.name.casefold(),
+        -path.stat().st_mtime,
+        str(path).casefold(),
+    ))
     return parse_detections(csv_files[0])
