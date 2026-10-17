@@ -4,6 +4,29 @@ from pathlib import Path
 import pytest
 
 from vizag_bird_finder_adapter import identify_audio, parse_detections
+from vizag_bird_finder_adapter import _copy_to_writable_runtime
+
+
+@pytest.fixture(autouse=True)
+def use_temporary_birdnet_runtime(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        "vizag_bird_finder_adapter._writable_birdnet_runtime",
+        lambda: tmp_path / "runtime",
+    )
+
+
+def test_birdnet_package_is_copied_without_checkpoint_data(tmp_path):
+    package = tmp_path / "installed" / "birdnet_analyzer"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("# package", encoding="utf-8")
+    (package / "checkpoints").mkdir()
+    (package / "checkpoints" / "model.tflite").write_bytes(b"large model")
+
+    runtime = _copy_to_writable_runtime(package, tmp_path / "runtime")
+
+    assert (runtime / "birdnet_analyzer" / "__init__.py").is_file()
+    assert not (runtime / "birdnet_analyzer" / "checkpoints").exists()
+    assert (runtime / ".ready").is_file()
 
 
 def test_parse_birdnet_cli_csv_with_timestamps(tmp_path):

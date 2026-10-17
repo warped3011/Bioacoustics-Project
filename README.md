@@ -4,7 +4,9 @@
 
 Open [vizag-bird-finder.streamlit.app](https://vizag-bird-finder.streamlit.app/). Choose **Upload a recording** or **Record a sound**, add a short clip, and select **Find birds**. The results show the strongest candidate, other possible birds, and timestamps for detected segments when BirdNET provides them. CSV and JSON downloads are available under the detections.
 
-The optional settings default to filtering for Visakhapatnam. Turn that setting off to search more broadly; the location filter can hide rare or seasonal visitors. BirdNET scores are model scores, not probabilities, and detections should be checked by listening to the audio.
+The optional settings default to a broad search. Turn on the Visakhapatnam filter to narrow likely species; it can hide rare or seasonal visitors. BirdNET scores are model scores, not probabilities, and detections should be checked by listening to the audio.
+
+The hosted app prepares BirdNET in writable temporary storage so its model checkpoint can be downloaded in restricted hosting environments. The first analysis after a container restart may take longer while the model is prepared; it needs internet access.
 
 ## Run locally on Windows
 

@@ -3,11 +3,59 @@
 from __future__ import annotations
 
 import csv
+import importlib.util
 import os
+import shutil
 import subprocess
 import sys
+import tempfile
+import threading
+import uuid
 from pathlib import Path
 from typing import Any
+
+_RUNTIME_COPY_LOCK = threading.Lock()
+
+
+def _copy_to_writable_runtime(source_package: Path, runtime_base: Path) -> Path:
+    """Copy BirdNET's Python package to writable storage for its model checkpoints."""
+    runtime_base.parent.mkdir(parents=True, exist_ok=True)
+    with _RUNTIME_COPY_LOCK:
+        if (runtime_base / ".ready").is_file():
+            return runtime_base
+
+        destination = runtime_base
+        if destination.exists():
+            # A previous process may have stopped during setup. Keep it intact and
+            # use a fresh unique directory rather than trusting a partial copy.
+            destination = runtime_base.with_name(f"{runtime_base.name}-{uuid.uuid4().hex[:8]}")
+        staging = Path(tempfile.mkdtemp(prefix=f"{runtime_base.name}-", dir=runtime_base.parent))
+        try:
+            shutil.copytree(
+                source_package,
+                staging / "birdnet_analyzer",
+                ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "checkpoints"),
+            )
+            (staging / ".ready").write_text("ready", encoding="utf-8")
+            staging.rename(destination)
+        except FileExistsError:
+            if not (destination / ".ready").is_file():
+                raise
+        finally:
+            if staging.exists():
+                shutil.rmtree(staging)
+        return destination
+
+
+def _writable_birdnet_runtime() -> Path:
+    spec = importlib.util.find_spec("birdnet_analyzer")
+    if spec is None or not spec.submodule_search_locations:
+        raise RuntimeError("BirdNET-Analyzer is not installed in this Python environment.")
+    source_package = Path(next(iter(spec.submodule_search_locations)))
+    return _copy_to_writable_runtime(
+        source_package,
+        Path(tempfile.gettempdir()) / "vizag_bird_finder_birdnet_runtime",
+    )
 
 
 def parse_detections(path: Path) -> list[dict[str, Any]]:
@@ -79,21 +127,26 @@ def identify_audio(audio_path: Path, output_dir: Path, *, threads: int = 2,
     audio_path = audio_path.resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
     executable = python or os.environ.get("BIRDNET_PYTHON") or sys.executable
+    runtime_root = _writable_birdnet_runtime()
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = os.pathsep.join(
+        part for part in (str(runtime_root), environment.get("PYTHONPATH", "")) if part
+    )
     command = [executable, "-m", "birdnet_analyzer.analyze", str(audio_path),
                "-o", str(output_dir), "--rtype", "csv", "--combine_results",
                "--threads", str(threads), "--min_conf", str(min_confidence), "--locale", "en"]
     if latitude is not None and longitude is not None:
         command.extend(["--lat", str(latitude), "--lon", str(longitude), "--week", "-1"])
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=900)
+        result = subprocess.run(command, capture_output=True, text=True, timeout=900, env=environment)
     except FileNotFoundError as exc:
         raise RuntimeError(f"Python executable not found: {executable}") from exc
     except subprocess.TimeoutExpired as exc:
         raise RuntimeError("BirdNET analysis exceeded the 15-minute time limit.") from exc
     if result.returncode:
-        detail = (result.stderr or result.stdout)[-4000:]
-        raise RuntimeError("BirdNET-Analyzer could not analyze this file. Confirm it is installed "
-                           "in the app's Python environment and the audio format is supported.\n" + detail)
+        lines = (result.stderr or result.stdout).strip().splitlines()
+        detail = lines[-1] if lines else "The analyzer returned no details."
+        raise RuntimeError(f"BirdNET could not analyze this recording: {detail}")
     csv_files = [path for path in output_dir.rglob("*.csv") if _is_detection_csv(path)]
     if not csv_files:
         # BirdNET can emit auxiliary/settings CSVs even when it found no birds.

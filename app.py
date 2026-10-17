@@ -83,7 +83,7 @@ if st.button("Find birds", type="primary", disabled=sound is None, use_container
     if suffix not in {".wav", ".mp3", ".flac", ".ogg"}:
         suffix = ".wav"
     try:
-        with st.spinner("BirdNET is checking your recording. The first analysis may take longer while the model starts. Keep this page open."):
+        with st.spinner("BirdNET is checking your recording. The first run may take longer to prepare its model. Keep this page open."):
             with tempfile.TemporaryDirectory(prefix="vizag_bird_finder_") as temp:
                 workspace = Path(temp)
                 audio_path = workspace / f"recording{suffix}"
@@ -174,4 +174,4 @@ with st.expander("About these results"):
     st.write("Vizag Bird Finder uses BirdNET-Analyzer, an AI model that suggests bird species from sound. It can make mistakes, and location filtering may hide rare visitors. Results should be checked by listening to the recording.")
     st.markdown("BirdNET-Analyzer source code is MIT licensed; its model files are CC BY-NC-SA 4.0. Check the model terms before commercial use. [Licensing details](https://birdnet-team.github.io/BirdNET-Analyzer/stable/faq.html) · [How BirdNET analyzes sound](https://birdnet-team.github.io/BirdNET-Analyzer/stable/usage/cli.html).")
     st.caption("Uploaded audio is processed temporarily and removed after the analysis. Downloaded results remain in your browser session.")
-    st.caption("App build: mobile-layout-1")
+    st.caption("App build: writable-model-cache-1")
