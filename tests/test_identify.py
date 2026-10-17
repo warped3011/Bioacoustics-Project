@@ -1,0 +1,72 @@
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from ecosound_eval.identify import identify_audio, parse_detections
+
+
+def test_parse_birdnet_cli_csv_with_timestamps(tmp_path):
+    csv_file = tmp_path / "detections.csv"
+    csv_file.write_text(
+        "Start (s),End (s),Scientific name,Common name,Confidence\n"
+        "0.0,3.0,Passer domesticus,House Sparrow,0.82\n"
+        "3.0,6.0,Corvus splendens,House Crow,0.41\n",
+        encoding="utf-8",
+    )
+
+    detections = parse_detections(csv_file)
+
+    assert detections == [
+        {"scientific_name": "Passer domesticus", "common_name": "House Sparrow",
+         "confidence": 0.82, "start_seconds": 0.0, "end_seconds": 3.0},
+        {"scientific_name": "Corvus splendens", "common_name": "House Crow",
+         "confidence": 0.41, "start_seconds": 3.0, "end_seconds": 6.0},
+    ]
+
+
+def test_identify_calls_documented_analyzer_cli_and_reads_csv(tmp_path, monkeypatch):
+    audio = tmp_path / "bird.wav"
+    audio.touch()
+    output = tmp_path / "output"
+    captured = {}
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "combined.csv").write_text(
+            "Scientific name,Common name,Confidence\nTurdus merula,Common Blackbird,0.9\n",
+            encoding="utf-8",
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
+    detections = identify_audio(audio, output, python="python-test", threads=3, min_confidence=0.3,
+                                latitude=17.6868, longitude=83.2185)
+
+    command = captured["command"]
+    assert command[:3] == ["python-test", "-m", "birdnet_analyzer.analyze"]
+    assert "--rtype" in command and "csv" in command
+    assert "--combine_results" in command
+    assert command[command.index("--lat") + 1] == "17.6868"
+    assert command[command.index("--lon") + 1] == "83.2185"
+    assert detections[0]["scientific_name"] == "Turdus merula"
+    assert captured["kwargs"]["timeout"] == 900
+
+
+def test_identify_rejects_out_of_range_confidence(tmp_path):
+    with pytest.raises(ValueError, match="between"):
+        identify_audio(Path("audio.wav"), tmp_path, min_confidence=1.0)
+
+
+def test_identify_requires_latitude_and_longitude_together(tmp_path):
+    with pytest.raises(ValueError, match="provided together"):
+        identify_audio(Path("audio.wav"), tmp_path, latitude=17.7)
+
+
+def test_parse_rejects_unrecognized_csv(tmp_path):
+    csv_file = tmp_path / "bad.csv"
+    csv_file.write_text("Animal,Certainty\nBird,0.5\n", encoding="utf-8")
+    with pytest.raises(ValueError, match="Unrecognized BirdNET CSV columns"):
+        parse_detections(csv_file)

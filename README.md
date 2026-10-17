@@ -2,22 +2,27 @@
 
 ## Open the website on your computer
 
-The web interface is a local Streamlit app. Install Python 3.10 or 3.11, then from this project folder run:
+The web interface is a local Streamlit app. BirdNET-Analyzer's documented CLI install requires Python 3.10 or 3.11. Install Python 3.11 first, then open PowerShell in this project folder and run:
 
 ```powershell
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-python -m pip install -e ".[baseline,web,dev]"
-python -m pip install "birdnet-analyzer>=2.4"
+python -m pip install -e ".[baseline,web,dev,birdnet]"
 python -m streamlit run app.py
 ```
 
-Streamlit will print a local address, usually `http://localhost:8501`, and may open it in your browser. If PowerShell blocks environment activation, run the venv's Python directly instead: `.\.venv\Scripts\python.exe -m pip install -e ".[baseline,web,dev]"`, then `.\.venv\Scripts\python.exe -m streamlit run app.py`. BirdNET installation needs Python 3.10 or 3.11 per its documented command-line setup. The first installation needs an internet connection. This app runs on the same computer and is not publicly hosted.
+Streamlit will print a local address, usually `http://localhost:8501`, and may open it in your browser. If PowerShell blocks environment activation, run the venv's Python directly instead: `.\.venv\Scripts\python.exe -m pip install -e ".[baseline,web,dev,birdnet]"`, then `.\.venv\Scripts\python.exe -m streamlit run app.py`. BirdNET installation needs Python 3.10 or 3.11 per its documented command-line setup. The first installation needs an internet connection. This app runs on the same computer and is not publicly hosted.
 
-On the website, upload the manifest CSV and a ZIP of the audio files, choose a split fraction and optional noise levels, then click **Run evaluation**. After the run finishes, inspect the per-condition metrics and download `predictions.csv` and `results.json`. Use at least two distinct source recording IDs for every species. The upload control has Streamlit's default 200 MB per-file limit. Do not expose the local app to the public internet; it has no authentication. The sample rows below describe format only.
+On the website, use **Identify birds in a sound** to upload a recording or record a short clip. BirdNET returns candidate detections with confidence scores and segment times (where available), which can be downloaded as CSV or JSON. These are model predictions, not verified species observations. This general BirdNET model does not need a user-provided labeled recording collection to propose species.
 
-This repository contains a local website and reproducible evaluation module. The initial workspace did not include an existing EcoSound AI application or dataset, so this adds an executable evaluation scaffold rather than modifying an existing application. No experiment has been run or reported here.
+The identification panel defaults to BirdNET's Visakhapatnam location filter (latitude 17.6868, longitude 83.2185, year-round week setting); turn it off to use the unrestricted species list. Location filtering can hide rare or seasonal visitors. For a custom classifier focused on a small local species set, collect and verify many licensed recordings per species first; BirdNET's training guide recommends at least 100 audio files per species. Keep every clip from one source recording under the same `recording_id` when making the held-out evaluation split.
+
+To compare BirdNET with the MFCC research baseline, upload the manifest CSV and a ZIP of labeled audio in **Research evaluation**, choose a split fraction and optional noise levels, then click **Run evaluation**. After a successful run, inspect per-condition metrics and download `predictions.csv` and `results.json`. Use at least two distinct source recording IDs for every species. The upload control has Streamlit's default 200 MB per-file limit. Do not expose the local app to the public internet; it has no authentication. Sample manifest rows below describe format only; this repository does not contain a bird recording collection and no results are prefilled.
+
+This repository contains the EcoSound AI Streamlit website and reproducible evaluation module. It does not include bird recordings, and no model performance results have been generated or reported here.
+
+For Streamlit Community Cloud, select Python 3.11 in the app's Advanced settings because BirdNET-Analyzer's documented CLI installation supports Python 3.10 and 3.11. The app must be deployed from the GitHub branch containing these files. See [Streamlit's deployment guide](https://docs.streamlit.io/deploy/streamlit-community-cloud/deploy-your-app/deploy) for selecting the Python version.
 
 ## Environment and BirdNET license
 

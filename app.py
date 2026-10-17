@@ -3,19 +3,101 @@
 from __future__ import annotations
 
 import tempfile
+import json
 import zipfile
 from pathlib import Path, PurePosixPath
 
 import pandas as pd
 import streamlit as st
 
+from ecosound_eval.identify import identify_audio
 from ecosound_eval.pipeline import read_manifest, run
 
-st.set_page_config(page_title="EcoSound AI | Research Evaluation", page_icon="🐦", layout="wide")
+st.set_page_config(page_title="EcoSound AI | Bird Sound ID", page_icon="🐦", layout="wide")
 st.title("🐦 EcoSound AI")
+st.write("Explore bird sounds with an audio identification tool, or run a controlled research evaluation.")
+
+with st.expander("Identify birds in a sound", expanded=True):
+    st.write("Upload a recording or record a short clip. BirdNET returns candidate detections with model confidence scores and timestamps when available.")
+    st.caption("Predictions can be wrong, especially with noisy recordings, distant calls, or species outside the model's coverage. Listen and verify before using a detection as a species record.")
+    uploaded_audio = st.file_uploader("Choose an audio recording", type=["wav", "mp3", "flac", "ogg"], key="identify_upload")
+    recorded_audio = st.audio_input("Or record a bird sound", key="identify_record")
+    id_col1, id_col2 = st.columns([1, 1])
+    with id_col1:
+        minimum_confidence = st.slider("Minimum model confidence", min_value=0.05, max_value=0.90,
+                                       value=0.20, step=0.05,
+                                       help="This filters displayed BirdNET detections; the score is not a calibrated probability.")
+    with id_col2:
+        id_threads = st.number_input("CPU threads", min_value=1, max_value=16, value=2, step=1, key="id_threads")
+    vizag_filter = st.checkbox("Prioritize species expected near Visakhapatnam", value=True,
+                               help="Uses BirdNET location filters at Visakhapatnam coordinates. Rare, seasonal, or unusual visitors may be filtered out.")
+    if uploaded_audio is not None:
+        st.audio(uploaded_audio)
+    elif recorded_audio is not None:
+        st.audio(recorded_audio)
+    if st.button("Identify sound", type="primary", disabled=uploaded_audio is None and recorded_audio is None):
+        st.session_state.pop("ecosound_identification", None)
+        sound = uploaded_audio if uploaded_audio is not None else recorded_audio
+        suffix = Path(sound.name).suffix.lower() if uploaded_audio is not None else ".wav"
+        if suffix not in {".wav", ".mp3", ".flac", ".ogg"}:
+            suffix = ".wav"
+        try:
+            with st.spinner("Analyzing audio with BirdNET… the first run may take longer while model files are prepared."):
+                with tempfile.TemporaryDirectory(prefix="ecosound_identify_") as temp:
+                    workspace = Path(temp)
+                    audio_path = workspace / f"recording{suffix}"
+                    audio_path.write_bytes(sound.getvalue())
+                    detections = identify_audio(audio_path, workspace / "birdnet_results",
+                                                threads=int(id_threads), min_confidence=float(minimum_confidence),
+                                                latitude=17.6868 if vizag_filter else None,
+                                                longitude=83.2185 if vizag_filter else None)
+            st.session_state["ecosound_identification"] = {
+                "detections": detections,
+                "source_name": uploaded_audio.name if uploaded_audio is not None else "Microphone recording",
+                "min_confidence": float(minimum_confidence),
+                "vizag_filter": vizag_filter,
+            }
+        except Exception as exc:
+            st.error(f"Could not identify this recording: {exc}")
+
+    identified = st.session_state.get("ecosound_identification")
+    if identified:
+        detections = identified["detections"]
+        location = "Visakhapatnam location filter" if identified["vizag_filter"] else "no location filter"
+        st.caption(f"Analysis: {identified['source_name']} · minimum confidence {identified['min_confidence']:.2f} · {location}")
+        if not detections:
+            st.info("No detections met this confidence threshold. Try a clearer or longer recording, or lower the threshold.")
+        else:
+            summary = {}
+            for detection in detections:
+                name = detection["scientific_name"]
+                if name not in summary or detection["confidence"] > summary[name]["confidence"]:
+                    summary[name] = detection
+            st.subheader("Candidate species")
+            st.dataframe([{"Scientific name": row["scientific_name"],
+                           "Common name": row["common_name"],
+                           "Highest segment confidence": row["confidence"]}
+                          for row in sorted(summary.values(), key=lambda row: row["confidence"], reverse=True)],
+                         use_container_width=True, hide_index=True)
+            st.subheader("Detections by audio segment")
+            st.dataframe([{"Scientific name": row["scientific_name"], "Common name": row["common_name"],
+                            "Confidence": row["confidence"],
+                            "Start (s)": row.get("start_seconds"), "End (s)": row.get("end_seconds")}
+                           for row in detections], use_container_width=True, hide_index=True)
+            result_df = pd.DataFrame(detections)
+            csv_data = result_df.to_csv(index=False).encode("utf-8")
+            json_data = json.dumps({"minimum_confidence": identified["min_confidence"],
+                                    "location_filter": "Visakhapatnam" if identified["vizag_filter"] else None,
+                                    "detections": detections}, indent=2).encode("utf-8")
+            dl1, dl2 = st.columns(2)
+            dl1.download_button("Download detections CSV", csv_data, "bird_detections.csv", "text/csv")
+            dl2.download_button("Download detections JSON", json_data, "bird_detections.json", "application/json")
+    st.caption("BirdNET-Analyzer source is MIT licensed; its model files are CC BY-NC-SA 4.0. Check the terms for the model you use, especially before commercial use. [Official licensing FAQ](https://birdnet-team.github.io/BirdNET-Analyzer/stable/faq.html) · [Official CLI documentation](https://birdnet-team.github.io/BirdNET-Analyzer/stable/usage/cli.html).")
+
+st.divider()
 st.subheader("Research evaluation")
 st.write("Compare an MFCC baseline with BirdNET on the same held-out recordings, then examine performance under controlled noise.")
-st.info("This is a research evaluation site. It does not identify species in uploaded audio for general use. Results are computed from your uploaded labels and recordings.")
+st.info("Evaluation results require your own labeled recordings. Species detections from the tool above are candidates, not verified ground-truth labels.")
 
 with st.expander("Prepare your dataset", expanded=True):
     st.markdown("""
