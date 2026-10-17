@@ -33,14 +33,14 @@ with st.expander("Optional settings"):
         "Minimum detection score",
         min_value=0.05,
         max_value=0.90,
-        value=0.20,
+        value=0.10,
         step=0.05,
-        help="Lower the score to show more possible matches. Scores are not probabilities.",
+        help="This starts low to show more possible birds, including quieter calls. Lower scores can add false matches; scores are not probabilities.",
     )
     vizag_filter = st.checkbox(
-        "Focus on birds expected near Vizag",
-        value=True,
-        help="This can filter out rare, seasonal, or unusual visitors. Turn it off to search more broadly.",
+        "Limit results to birds expected near Vizag",
+        value=False,
+        help="Leave this off for a broad search. Turning it on can hide rare, seasonal, or unusual visitors.",
     )
 
 if st.button("Find birds", type="primary", disabled=sound is None, use_container_width=True):
@@ -79,7 +79,7 @@ if result:
     detections = result["detections"]
     if not detections:
         st.warning("I couldn't find a clear bird match in this recording. This doesn't mean there was no bird.")
-        st.markdown("Try a recording with the bird louder and less background noise. In **Optional settings**, lower the minimum score or turn off **Focus on birds expected near Vizag** to search more broadly.")
+        st.markdown("Try a closer, clearer recording with less wind or traffic. In **Optional settings**, lower the minimum score or, if enabled, turn off **Limit results to birds expected near Vizag**.")
     else:
         best_by_species = {}
         for detection in detections:
@@ -141,4 +141,4 @@ with st.expander("About these results"):
     st.write("Vizag Bird Finder uses BirdNET-Analyzer, an AI model that suggests bird species from sound. It can make mistakes, and location filtering may hide rare visitors. Results should be checked by listening to the recording.")
     st.markdown("BirdNET-Analyzer source code is MIT licensed; its model files are CC BY-NC-SA 4.0. Check the model terms before commercial use. [Licensing details](https://birdnet-team.github.io/BirdNET-Analyzer/stable/faq.html) · [How BirdNET analyzes sound](https://birdnet-team.github.io/BirdNET-Analyzer/stable/usage/cli.html).")
     st.caption("Uploaded audio is processed temporarily and removed after the analysis. Downloaded results remain in your browser session.")
-    st.caption("App build: csv-detection-fix-3")
+    st.caption("App build: broader-search-1")
