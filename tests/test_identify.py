@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from ecosound_eval.identify import identify_audio, parse_detections
+from vizag_bird_finder_adapter import identify_audio, parse_detections
 
 
 def test_parse_birdnet_cli_csv_with_timestamps(tmp_path):
@@ -41,7 +41,7 @@ def test_identify_calls_documented_analyzer_cli_and_reads_csv(tmp_path, monkeypa
         )
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
+    monkeypatch.setattr("vizag_bird_finder_adapter.subprocess.run", fake_run)
     detections = identify_audio(audio, output, python="python-test", threads=3, min_confidence=0.3,
                                 latitude=17.6868, longitude=83.2185)
 
@@ -73,7 +73,7 @@ def test_identify_ignores_auxiliary_settings_csv_and_reads_nested_results(tmp_pa
         )
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
+    monkeypatch.setattr("vizag_bird_finder_adapter.subprocess.run", fake_run)
     detections = identify_audio(audio, output)
 
     assert len(detections) == 1
@@ -93,7 +93,7 @@ def test_identify_returns_empty_when_only_auxiliary_csv_is_produced(tmp_path, mo
         )
         return subprocess.CompletedProcess(command, 0, "", "")
 
-    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
+    monkeypatch.setattr("vizag_bird_finder_adapter.subprocess.run", fake_run)
 
     assert identify_audio(audio, output) == []
 
@@ -113,8 +113,8 @@ def test_identify_does_not_surface_unrecognized_result_schema(tmp_path, monkeypa
     def unexpected_schema(_path):
         raise ValueError("Unrecognized BirdNET CSV columns: ['File splitting duration']")
 
-    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
-    monkeypatch.setattr("ecosound_eval.identify.parse_detections", unexpected_schema)
+    monkeypatch.setattr("vizag_bird_finder_adapter.subprocess.run", fake_run)
+    monkeypatch.setattr("vizag_bird_finder_adapter.parse_detections", unexpected_schema)
 
     assert identify_audio(audio, output) == []
 
