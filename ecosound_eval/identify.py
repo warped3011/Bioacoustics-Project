@@ -105,4 +105,12 @@ def identify_audio(audio_path: Path, output_dir: Path, *, threads: int = 2,
         -path.stat().st_mtime,
         str(path).casefold(),
     ))
-    return parse_detections(csv_files[0])
+    # Be defensive if BirdNET adds an unexpected header to a result-named CSV:
+    # skip it instead of showing a raw parser exception to the person using the app.
+    for csv_path in csv_files:
+        try:
+            return parse_detections(csv_path)
+        except ValueError as exc:
+            if not str(exc).startswith("Unrecognized BirdNET CSV columns:"):
+                raise
+    return []

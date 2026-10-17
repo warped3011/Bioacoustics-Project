@@ -141,3 +141,4 @@ with st.expander("About these results"):
     st.write("Vizag Bird Finder uses BirdNET-Analyzer, an AI model that suggests bird species from sound. It can make mistakes, and location filtering may hide rare visitors. Results should be checked by listening to the recording.")
     st.markdown("BirdNET-Analyzer source code is MIT licensed; its model files are CC BY-NC-SA 4.0. Check the model terms before commercial use. [Licensing details](https://birdnet-team.github.io/BirdNET-Analyzer/stable/faq.html) · [How BirdNET analyzes sound](https://birdnet-team.github.io/BirdNET-Analyzer/stable/usage/cli.html).")
     st.caption("Uploaded audio is processed temporarily and removed after the analysis. Downloaded results remain in your browser session.")
+    st.caption("App build: csv-detection-fix-2")

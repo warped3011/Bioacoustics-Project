@@ -98,6 +98,27 @@ def test_identify_returns_empty_when_only_auxiliary_csv_is_produced(tmp_path, mo
     assert identify_audio(audio, output) == []
 
 
+def test_identify_does_not_surface_unrecognized_result_schema(tmp_path, monkeypatch):
+    audio = tmp_path / "bird.wav"
+    audio.touch()
+    output = tmp_path / "output"
+
+    def fake_run(command, **kwargs):
+        output.mkdir(parents=True, exist_ok=True)
+        (output / "recording.BirdNET.results.csv").write_text(
+            "Scientific name,Confidence\nPasser domesticus,0.7\n", encoding="utf-8"
+        )
+        return subprocess.CompletedProcess(command, 0, "", "")
+
+    def unexpected_schema(_path):
+        raise ValueError("Unrecognized BirdNET CSV columns: ['File splitting duration']")
+
+    monkeypatch.setattr("ecosound_eval.identify.subprocess.run", fake_run)
+    monkeypatch.setattr("ecosound_eval.identify.parse_detections", unexpected_schema)
+
+    assert identify_audio(audio, output) == []
+
+
 def test_identify_rejects_out_of_range_confidence(tmp_path):
     with pytest.raises(ValueError, match="between"):
         identify_audio(Path("audio.wav"), tmp_path, min_confidence=1.0)
