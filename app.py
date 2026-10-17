@@ -15,6 +15,40 @@ from vizag_bird_finder_adapter import identify_audio
 
 st.set_page_config(page_title="Vizag Bird Finder", page_icon="🐦", layout="centered")
 
+st.markdown(
+    """
+    <style>
+    @media (max-width: 640px) {
+        .stApp [data-testid="stAppViewContainer"] section.main > div.block-container {
+            padding: 1.1rem max(1rem, env(safe-area-inset-right))
+                2rem max(1rem, env(safe-area-inset-left));
+        }
+        .stApp h1 {
+            font-size: clamp(1.8rem, 8vw, 2.5rem);
+            line-height: 1.12;
+            overflow-wrap: anywhere;
+        }
+        .stApp audio,
+        .stApp [data-testid="stAudioInput"] {
+            width: 100%;
+            max-width: 100%;
+        }
+        .stApp button {
+            min-height: 2.75rem;
+        }
+        .stApp [data-testid="stRadio"] [role="radiogroup"] {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .stApp [data-testid="stFileUploaderDropzone"] {
+            padding: 0.75rem;
+        }
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("🐦 Vizag Bird Finder")
 st.write("Find likely birds in a recording from Visakhapatnam.")
 st.info("Add a short bird sound below. Results are AI suggestions: please listen and verify before treating a bird as identified.")
@@ -96,26 +130,26 @@ if result:
 
         if len(ranked) > 1:
             st.subheader("Other possible birds")
-            st.dataframe(
-                [{"Bird": row["common_name"] or row["scientific_name"],
-                  "Scientific name": row["scientific_name"],
-                  "Best segment score": f"{row['confidence']:.2f}"}
-                 for row in ranked[1:]],
-                use_container_width=True,
-                hide_index=True,
-            )
+            for row in ranked[1:]:
+                with st.container(border=True):
+                    st.write(f"**{row['common_name'] or row['scientific_name']}**")
+                    if row["common_name"]:
+                        st.caption(row["scientific_name"])
+                    st.caption(f"Best segment score: {row['confidence']:.2f}")
 
         st.subheader("Where they were heard")
         st.caption("Times show the audio segment where BirdNET detected each bird, when provided by the model.")
-        st.dataframe(
-            [{"Bird": row["common_name"] or row["scientific_name"],
-              "Start time (seconds)": row.get("start_seconds"),
-              "End time (seconds)": row.get("end_seconds"),
-              "Score": f"{row['confidence']:.2f}"}
-             for row in detections],
-            use_container_width=True,
-            hide_index=True,
-        )
+        for row in detections:
+            with st.container(border=True):
+                st.write(f"**{row['common_name'] or row['scientific_name']}**")
+                if row["common_name"]:
+                    st.caption(row["scientific_name"])
+                start = row.get("start_seconds")
+                end = row.get("end_seconds")
+                if start is not None and end is not None:
+                    st.caption(f"Heard from {start:.1f} to {end:.1f} seconds · Score {row['confidence']:.2f}")
+                else:
+                    st.caption(f"Score {row['confidence']:.2f}")
 
         export_rows = [{**row, "location_filter": "Visakhapatnam" if result["vizag_filter"] else None,
                         "minimum_confidence": result["minimum_confidence"]}
@@ -133,12 +167,11 @@ if result:
             "minimum_confidence": result["minimum_confidence"],
             "detections": detections,
         }, indent=2)
-        download_col1, download_col2 = st.columns(2)
-        download_col1.download_button("Download results (CSV)", csv_file.getvalue(), "vizag_bird_results.csv", "text/csv", use_container_width=True)
-        download_col2.download_button("Download results (JSON)", json_file, "vizag_bird_results.json", "application/json", use_container_width=True)
+        st.download_button("Download results (CSV)", csv_file.getvalue(), "vizag_bird_results.csv", "text/csv", use_container_width=True)
+        st.download_button("Download results (JSON)", json_file, "vizag_bird_results.json", "application/json", use_container_width=True)
 
 with st.expander("About these results"):
     st.write("Vizag Bird Finder uses BirdNET-Analyzer, an AI model that suggests bird species from sound. It can make mistakes, and location filtering may hide rare visitors. Results should be checked by listening to the recording.")
     st.markdown("BirdNET-Analyzer source code is MIT licensed; its model files are CC BY-NC-SA 4.0. Check the model terms before commercial use. [Licensing details](https://birdnet-team.github.io/BirdNET-Analyzer/stable/faq.html) · [How BirdNET analyzes sound](https://birdnet-team.github.io/BirdNET-Analyzer/stable/usage/cli.html).")
     st.caption("Uploaded audio is processed temporarily and removed after the analysis. Downloaded results remain in your browser session.")
-    st.caption("App build: broader-search-1")
+    st.caption("App build: mobile-layout-1")
