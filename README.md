@@ -2,7 +2,25 @@
 
 ## Use the website
 
-Open [vizag-bird-finder.streamlit.app](https://vizag-bird-finder.streamlit.app/). Choose **Upload a recording** or **Record a sound**, add a short clip, and select **Find birds**. The results show the strongest candidate, other possible birds, and timestamps for detected segments when BirdNET provides them. CSV and JSON downloads are available under the detections.
+Open [vizag-bird-finder.streamlit.app](https://vizag-bird-finder.streamlit.app/). Choose **Upload a recording** or **Record a sound**, add a short clip, and select **Find birds** for a BirdNET suggestion. CSV and JSON downloads are available under detections.
+
+The **Bird calls** panel searches Wikimedia Commons recordings, plays them, and links to the original audio file and its license page. Results are filtered to recordings with a supported reuse license and show creator attribution. They are reference examples from the wider range, not necessarily recordings made in Vizag. The regional list link currently refers to the former Visakhapatnam district and is an older checklist; it is a discovery aid, not a claim that every listed species is resident in the current district.
+
+The app also offers **Train a simple local bird model**. It fits an MFCC + Random Forest classifier from a ZIP you upload. This project's repository does not contain a curated training set, so no built-in learned species model or complete regional audio collection is claimed. A prediction from the uploaded model is a nearest learned class, not a validated identification or calibrated probability. The model exists only in your current Streamlit session.
+
+### Prepare and use a training ZIP
+
+Use real, labeled recordings you are allowed to use. Put `manifest.csv` at the ZIP root and keep audio paths relative to it. Use the scientific name as `label`, and assign the same `recording_id` to every clip cut from one original recording. At least two species and two distinct original recordings per species are required.
+
+```csv
+audio_path,label,recording_id
+audio/housecrow_01.ogg,Corvus splendens,field-session-01
+audio/housecrow_02.ogg,Corvus splendens,field-session-02
+audio/koel_01.wav,Eudynamys scolopaceus,field-session-03
+audio/koel_02.wav,Eudynamys scolopaceus,field-session-04
+```
+
+Zip the manifest and `audio/` folder together, then upload it in the training panel. Keep a separate credits file for downloaded recordings, and follow each file's license (including attribution and share-alike requirements). Example search links in the app do not automatically become part of your training data.
 
 The optional settings default to a broad search. Turn on the Visakhapatnam filter to narrow likely species; it can hide rare or seasonal visitors. BirdNET scores are model scores, not probabilities, and detections should be checked by listening to the audio.
 
@@ -23,7 +41,7 @@ The website opens at `http://localhost:8501`. The first setup and first BirdNET 
 
 ## Reproducible research experiments
 
-The website is dedicated to sound identification. The command-line pipeline remains available for a BirdNET versus MFCC comparison, using the same held-out recordings for both systems. The repository does not include a labeled audio collection or experiment results.
+The command-line pipeline remains available for a BirdNET versus MFCC comparison, using the same held-out recordings for both systems. The repository does not include a labeled audio collection or experiment results.
 
 Create a UTF-8 `data/manifest.csv` with `audio_path`, `label`, and `recording_id` columns. Audio paths are relative to the manifest. Use one stable recording ID for each original recording; clips cut from one source recording must share its ID. Provide at least two distinct recordings per species to split that species between training and held-out evaluation.
 
