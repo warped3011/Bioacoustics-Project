@@ -22,3 +22,6 @@ ecosound-export-birdnet = "ecosound_eval.birdnet_export:main"
 
 [tool.setuptools.packages.find]
 include = ["ecosound_eval*"]
+
+[tool.vercel]
+entrypoint = "api.analyze:handler"
