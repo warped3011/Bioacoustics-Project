@@ -18,6 +18,8 @@ web = ["streamlit>=1.40", "pandas>=2.0"]
 
 [project.scripts]
 ecosound-eval = "ecosound_eval.pipeline:main"
+ecosound-event-evaluate = "ecosound_eval.event_evaluation:main"
+ecosound-export-birdnet = "ecosound_eval.birdnet_export:main"
 
 [tool.setuptools.packages.find]
 include = ["ecosound_eval*"]

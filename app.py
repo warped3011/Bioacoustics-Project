@@ -37,7 +37,7 @@ FEATURED_CALLS = [
 ]
 
 
-st.set_page_config(page_title="Vizag Bird Finder", page_icon="🐦", layout="centered")
+st.set_page_config(page_title="EcoSound Shift", page_icon="🐦", layout="centered")
 
 st.markdown(
     """
@@ -73,9 +73,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("🐦 Vizag Bird Finder")
-st.write("Find likely birds in a recording from Visakhapatnam.")
+st.title("🐦 EcoSound Shift")
+st.write("A field-review workspace for bird-call detection in Visakhapatnam recordings.")
 st.info("Add a short bird sound below. Results are AI suggestions: please listen and verify before treating a bird as identified.")
+
+with st.expander("Research workflow", expanded=False):
+    st.write("This reviewer is one part of the EcoSound Shift portfolio project. Keep a recording registry, manually review candidate calls, and evaluate the model only against accepted time-stamped annotations.")
+    st.code("recordings.csv → BirdNET predictions → reviewed annotations → event-level metrics", language=None)
+    st.caption("The repository includes templates plus an evaluation command that reports precision, recall, and F1 by species, site type, and noise level. Do not treat an unreviewed model suggestion as ground truth.")
 
 with st.expander("Bird calls: listen and download sample recordings", expanded=False):
     st.write("Featured examples")
@@ -120,6 +125,12 @@ if input_method == "Upload a recording":
     sound = st.file_uploader("Choose an audio file", type=["wav", "mp3", "flac", "ogg"])
 else:
     sound = st.audio_input("Record a bird sound")
+
+recording_id = st.text_input(
+    "Recording ID for research exports (optional)",
+    placeholder="For example: vizag-park-2026-11-03-dawn-01",
+    help="Use the same ID in recordings.csv. If blank, the uploaded filename is used.",
+)
 
 if sound is not None:
     st.audio(sound)
@@ -308,9 +319,34 @@ if result:
         }, indent=2)
         st.download_button("Download results (CSV)", csv_file.getvalue(), "vizag_bird_results.csv", "text/csv", use_container_width=True)
         st.download_button("Download results (JSON)", json_file, "vizag_bird_results.json", "application/json", use_container_width=True)
+        research_file = io.StringIO(newline="")
+        research_writer = csv.DictWriter(research_file, fieldnames=[
+            "recording_id", "start_seconds", "end_seconds", "scientific_name", "confidence", "model_name",
+        ])
+        research_writer.writeheader()
+        exported_id = recording_id.strip() or Path(result["recording_name"]).stem
+        for row in detections:
+            if row.get("start_seconds") is None or row.get("end_seconds") is None:
+                continue
+            research_writer.writerow({
+                "recording_id": exported_id,
+                "start_seconds": row["start_seconds"],
+                "end_seconds": row["end_seconds"],
+                "scientific_name": row["scientific_name"],
+                "confidence": row["confidence"],
+                "model_name": "BirdNET",
+            })
+        st.download_button(
+            "Download research predictions (CSV)",
+            research_file.getvalue(),
+            "birdnet_predictions.csv",
+            "text/csv",
+            help="Use this file with the event-level evaluation pipeline after manual review.",
+            use_container_width=True,
+        )
 
 with st.expander("About these results"):
-    st.write("Vizag Bird Finder uses BirdNET-Analyzer, an AI model that suggests bird species from sound. It can make mistakes, and location filtering may hide rare visitors. Results should be checked by listening to the recording.")
+    st.write("EcoSound Shift uses BirdNET-Analyzer, an AI model that suggests bird species from sound. It can make mistakes, and location filtering may hide rare visitors. Results should be checked by listening to the recording.")
     st.markdown("BirdNET-Analyzer source code is MIT licensed; its model files are CC BY-NC-SA 4.0. Check the model terms before commercial use. [Licensing details](https://birdnet-team.github.io/BirdNET-Analyzer/stable/faq.html) · [How BirdNET analyzes sound](https://birdnet-team.github.io/BirdNET-Analyzer/stable/usage/cli.html).")
     st.caption("Uploaded audio is processed temporarily and removed after the analysis. Downloaded results remain in your browser session.")
     st.caption("App build: corpus-intake-templates-1")

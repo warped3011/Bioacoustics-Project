@@ -1,4 +1,53 @@
-# Vizag Bird Finder
+# EcoSound Shift
+
+**A field-robust bioacoustics benchmark and review workspace for bird-call detection in urban soundscapes.**
+
+The project asks a technical question: does a detector trained largely on public recordings remain reliable on locally collected, noisy audio from unseen sites? It pairs an interactive BirdNET review tool with a reproducible event-level evaluation pipeline. See [the project design](docs/PROJECT_DESIGN.md) for the research protocol, anti-leakage rules, and planned experiments.
+
+## What makes this a research-grade portfolio project
+
+- **Manually reviewed ground truth:** model suggestions are never treated as confirmed labels by themselves.
+- **Unseen-site evaluation:** keep entire field sites out of training and threshold selection.
+- **Event-level scoring:** detections must match the reviewed species and call interval, not only a recording label.
+- **Domain-shift analysis:** report results by site type and field-noise condition.
+- **Auditable errors:** every false positive and missed call is written with its recording ID and timestamp.
+
+The original interactive app is currently branded **Vizag Bird Finder** because it was built for recordings around Visakhapatnam. It is one component of EcoSound Shift, not the scientific evaluation itself.
+
+## Field dataset contract
+
+Start from the templates in [`templates/`](templates/):
+
+- `recordings.csv` registers each field recording and its site/noise context.
+- `annotations.csv` holds timestamped, manually reviewed events.
+- `predictions.csv` stores detector output in a model-neutral format.
+
+Run event-level evaluation once you have reviewed annotations and detector predictions:
+
+```powershell
+.\.venv311\Scripts\python.exe -m ecosound_eval.event_evaluation `
+  --recordings data/recordings.csv `
+  --annotations data/annotations.csv `
+  --predictions results/birdnet_predictions.csv `
+  --output results/event_eval `
+  --minimum-confidence 0.50 `
+  --iou-threshold 0.50
+```
+
+This writes `event_metrics.json` with precision, recall, and F1 overall and by species, site type, and noise level; `event_matches.csv` makes each error reviewable.
+
+BirdNET Analyzer's timestamped CSV can be converted into the project prediction contract without editing it by hand:
+
+```powershell
+.\.venv311\Scripts\python.exe -m ecosound_eval.birdnet_export `
+  --input results/recording-001.BirdNET.results.csv `
+  --recording-id vizag-park-001 `
+  --output results/birdnet_predictions.csv
+```
+
+For collection, labelling, licensing, and privacy expectations, read the [dataset card](docs/DATASET_CARD.md) and [annotation guide](docs/ANNOTATION_GUIDE.md).
+
+## Interactive review workspace
 
 ## Use the website
 
