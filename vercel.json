@@ -1,0 +1,1 @@
+{"$schema":"https://openapi.vercel.sh/vercel.json","functions":{"api/analyze.py":{"maxDuration":300,"memory":2048,"excludeFiles":"{tests/**,docs/**,data/**,results/**,.venv/**,templates/**}"}}}
