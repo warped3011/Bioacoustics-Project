@@ -1,1 +1,61 @@
-const form=document.querySelector('#analysis-form'),fileInput=document.querySelector('#audio-file'),fileLabel=document.querySelector('#file-label'),status=document.querySelector('#status'),results=document.querySelector('#results'),list=document.querySelector('#detection-list'),button=document.querySelector('#analyze-button'),downloadButton=document.querySelector('#download-button');let currentRows=[];fileInput.addEventListener('change',()=>{const f=fileInput.files[0];fileLabel.textContent=f?`${f.name} · ${(f.size/1e6).toFixed(2)} MB`:'Choose a WAV, MP3, FLAC, or OGG clip'});const csvEscape=v=>{const t=String(v??'');return /[",\n]/.test(t)?`"${t.replaceAll('"','""')}"`:t};function render(d){list.innerHTML='';if(!d.length){list.innerHTML="<p class='empty'>No candidate calls reached this score. This is not evidence that the recording contains no birds.</p>";return}d.sort((a,b)=>b.confidence-a.confidence).forEach(x=>{const i=document.createElement('article');i.className='detection';const t=x.start_seconds==null?'No timestamp returned':`${x.start_seconds.toFixed(1)}–${x.end_seconds.toFixed(1)} s`;i.innerHTML=`<div><h4>${x.common_name||x.scientific_name}</h4><p>${x.scientific_name}</p></div><div class="detection-meta"><strong>${Number(x.confidence).toFixed(2)}</strong><span>${t}</span></div>`;list.append(i)})}form.addEventListener('submit',async e=>{e.preventDefault();const f=fileInput.files[0];if(!f)return;if(f.size>3e6){status.textContent='Choose a clip smaller than 3 MB.';return}button.disabled=true;status.textContent='Preparing and analyzing audio…';results.hidden=true;try{const b=new Uint8Array(await f.arrayBuffer());let s='';for(const x of b)s+=String.fromCharCode(x);const r=await fetch('/api/analyze',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({filename:f.name,audio_base64:btoa(s),minimum_confidence:Number(document.querySelector('#minimum-confidence').value)})}),p=await r.json();if(!r.ok)throw Error(p.error||'Analysis could not be completed.');const id=document.querySelector('#recording-id').value.trim()||f.name.replace(/\.[^.]+$/,'');currentRows=p.detections.filter(x=>x.start_seconds!=null&&x.end_seconds!=null).map(x=>({recording_id:id,start_seconds:x.start_seconds,end_seconds:x.end_seconds,scientific_name:x.scientific_name,confidence:x.confidence,model_name:p.model_name}));render(p.detections);results.hidden=false;status.textContent=`${p.detections.length} candidate detection${p.detections.length===1?'':'s'} returned. Review before using as evidence.`}catch(e){status.textContent=e.message}finally{button.disabled=false}});downloadButton.addEventListener('click',()=>{const f=['recording_id','start_seconds','end_seconds','scientific_name','confidence','model_name'],csv=[f.join(','),...currentRows.map(r=>f.map(k=>csvEscape(r[k])).join(','))].join('\n'),a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download='birdnet_predictions.csv';a.click();URL.revokeObjectURL(a.href)});
+const form = document.querySelector('#analysis-form');
+const fileInput = document.querySelector('#audio-file');
+const fileLabel = document.querySelector('#file-label');
+const status = document.querySelector('#status');
+const results = document.querySelector('#results');
+const list = document.querySelector('#detection-list');
+const button = document.querySelector('#analyze-button');
+const downloadButton = document.querySelector('#download-button');
+let currentRows = [];
+
+fileInput.addEventListener('change', () => {
+  const file = fileInput.files[0];
+  fileLabel.textContent = file ? `${file.name} · ${(file.size / 1e6).toFixed(2)} MB` : 'Choose a WAV, MP3, FLAC, or OGG clip';
+});
+
+document.querySelectorAll('.demo-load').forEach((demoButton) => demoButton.addEventListener('click', async () => {
+  demoButton.disabled = true;
+  status.textContent = 'Loading the demo recording…';
+  try {
+    const response = await fetch(demoButton.dataset.demoUrl);
+    if (!response.ok) throw Error('Demo audio is unavailable right now.');
+    const blob = await response.blob();
+    const file = new File([blob], demoButton.dataset.demoName, {type: blob.type || 'audio/ogg'});
+    const transfer = new DataTransfer();
+    transfer.items.add(file);
+    fileInput.files = transfer.files;
+    fileLabel.textContent = `${file.name} · ${(file.size / 1e6).toFixed(2)} MB`;
+    status.textContent = 'Demo loaded. Press Analyze recording to continue.';
+  } catch (error) {
+    status.textContent = `${error.message} You can still play it above or upload your own clip.`;
+  } finally { demoButton.disabled = false; }
+}));
+
+const csvEscape = (value) => { const text = String(value ?? ''); return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; };
+
+function renderDetections(detections) {
+  list.innerHTML = '';
+  if (!detections.length) { list.innerHTML = "<p class='empty'>No candidate calls reached this score. This is not evidence that the recording contains no birds.</p>"; return; }
+  detections.sort((a, b) => b.confidence - a.confidence).forEach((detection) => {
+    const item = document.createElement('article'); item.className = 'detection';
+    const time = detection.start_seconds == null ? 'No timestamp returned' : `${detection.start_seconds.toFixed(1)}–${detection.end_seconds.toFixed(1)} s`;
+    item.innerHTML = `<div><h4>${detection.common_name || detection.scientific_name}</h4><p>${detection.scientific_name}</p></div><div class="detection-meta"><strong>${Number(detection.confidence).toFixed(2)}</strong><span>${time}</span></div>`;
+    list.append(item);
+  });
+}
+
+form.addEventListener('submit', async (event) => {
+  event.preventDefault(); const file = fileInput.files[0]; if (!file) return;
+  if (file.size > 3e6) { status.textContent = 'Choose a clip smaller than 3 MB.'; return; }
+  button.disabled = true; status.textContent = 'Preparing and analyzing audio…'; results.hidden = true;
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer()); let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
+    const response = await fetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:file.name, audio_base64:btoa(binary), minimum_confidence:Number(document.querySelector('#minimum-confidence').value)})});
+    const payload = await response.json(); if (!response.ok) throw Error(payload.error || 'Analysis could not be completed.');
+    const recordingId = document.querySelector('#recording-id').value.trim() || file.name.replace(/\.[^.]+$/, '');
+    currentRows = payload.detections.filter((row) => row.start_seconds != null && row.end_seconds != null).map((row) => ({recording_id:recordingId, start_seconds:row.start_seconds, end_seconds:row.end_seconds, scientific_name:row.scientific_name, confidence:row.confidence, model_name:payload.model_name}));
+    renderDetections(payload.detections); results.hidden = false; status.textContent = `${payload.detections.length} candidate detection${payload.detections.length === 1 ? '' : 's'} returned. Review before using as evidence.`;
+  } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
+});
+
+downloadButton.addEventListener('click', () => { const fields = ['recording_id','start_seconds','end_seconds','scientific_name','confidence','model_name']; const csv = [fields.join(','), ...currentRows.map((row) => fields.map((field) => csvEscape(row[field])).join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = 'birdnet_predictions.csv'; link.click(); URL.revokeObjectURL(link.href); });
