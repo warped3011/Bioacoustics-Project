@@ -127,6 +127,20 @@ if sound is not None:
 with st.expander("Train a simple local bird model from your recordings"):
     st.write("Upload a ZIP containing `manifest.csv` and the licensed recordings it lists. The MFCC model learns only from this dataset. It needs at least two species and two distinct original recordings for every species.")
     st.caption("The website currently has no bundled labeled dataset. Wikimedia Commons samples are examples to listen to; download only files whose license permits your use, keep their credits, and add them to your own manifest before training.")
+    st.download_button(
+        "Download blank manifest template",
+        "audio_path,label,recording_id\n",
+        file_name="manifest.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
+    st.download_button(
+        "Download recording credits template",
+        "audio_path,recording_id,common_name,scientific_name,source_page,audio_url,creator,license,license_url,recording_location,accessed_on,notes\n",
+        file_name="recording_credits.csv",
+        mime="text/csv",
+        use_container_width=True,
+    )
     training_zip = st.file_uploader("Training dataset ZIP", type=["zip"], key="training_dataset_zip")
     if st.button("Train my MFCC model", disabled=training_zip is None, use_container_width=True):
         try:
@@ -299,4 +313,4 @@ with st.expander("About these results"):
     st.write("Vizag Bird Finder uses BirdNET-Analyzer, an AI model that suggests bird species from sound. It can make mistakes, and location filtering may hide rare visitors. Results should be checked by listening to the recording.")
     st.markdown("BirdNET-Analyzer source code is MIT licensed; its model files are CC BY-NC-SA 4.0. Check the model terms before commercial use. [Licensing details](https://birdnet-team.github.io/BirdNET-Analyzer/stable/faq.html) · [How BirdNET analyzes sound](https://birdnet-team.github.io/BirdNET-Analyzer/stable/usage/cli.html).")
     st.caption("Uploaded audio is processed temporarily and removed after the analysis. Downloaded results remain in your browser session.")
-    st.caption("App build: commons-samples-local-mfcc-1")
+    st.caption("App build: corpus-intake-templates-1")

@@ -22,6 +22,8 @@ audio/koel_02.wav,Eudynamys scolopaceus,field-session-04
 
 Zip the manifest and `audio/` folder together, then upload it in the training panel. Keep a separate credits file for downloaded recordings, and follow each file's license (including attribution and share-alike requirements). Example search links in the app do not automatically become part of your training data.
 
+Blank CSV templates are in [`templates/manifest.csv`](templates/manifest.csv) and [`templates/recording_credits.csv`](templates/recording_credits.csv). The credits sheet records each sound's source, contributor, license, and location separately from the model label. Do not treat an unverified species label as ground truth.
+
 The optional settings default to a broad search. Turn on the Visakhapatnam filter to narrow likely species; it can hide rare or seasonal visitors. BirdNET scores are model scores, not probabilities, and detections should be checked by listening to the audio.
 
 The hosted app prepares BirdNET in writable temporary storage so its model checkpoint can be downloaded in restricted hosting environments. The first analysis after a container restart may take longer while the model is prepared; it needs internet access.
