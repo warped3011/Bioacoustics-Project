@@ -1,12 +1,12 @@
 # EcoSound Shift
 
-**A Vercel-native field-review and evaluation system for bird-call detection in noisy urban audio.**
+**A Vercel-native field-review and evaluation system for measuring bird soundscape recovery after rain.**
 
-EcoSound Shift investigates a practical audio-ML question: does a bird-call detector trained mostly on public recordings remain reliable on local field audio from unseen sites and different noise conditions?
+EcoSound Shift investigates how bird acoustic activity changes before and after rainfall across quiet and roadside green spaces. BirdNET generates candidate events, while human review remains the evidence step.
 
 ## Research workflow
 
-1. Register every field session in `recordings.csv`.
+1. Register every field session in `recordings.csv`, including site type, hours since rain, and rainfall amount.
 2. Review detector output in a spectrogram and record accepted events in `annotations.csv`.
 3. Evaluate predictions with the event-level command below.
 4. Report precision, recall, and F1 by species, site type, and field-noise condition.

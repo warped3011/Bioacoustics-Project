@@ -7,6 +7,7 @@ const list = document.querySelector('#detection-list');
 const button = document.querySelector('#analyze-button');
 const downloadButton = document.querySelector('#download-button');
 let currentRows = [];
+const researchMeta = () => ({site_id: document.querySelector('#site-id').value.trim(), site_type: document.querySelector('#site-type').value, hours_since_rain: document.querySelector('#hours-since-rain').value, rainfall_mm: document.querySelector('#rainfall-mm').value});
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
@@ -53,9 +54,9 @@ form.addEventListener('submit', async (event) => {
     const response = await fetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:file.name, audio_base64:btoa(binary), minimum_confidence:Number(document.querySelector('#minimum-confidence').value)})});
     const payload = await response.json(); if (!response.ok) throw Error(payload.error || 'Analysis could not be completed.');
     const recordingId = document.querySelector('#recording-id').value.trim() || file.name.replace(/\.[^.]+$/, '');
-    currentRows = payload.detections.filter((row) => row.start_seconds != null && row.end_seconds != null).map((row) => ({recording_id:recordingId, start_seconds:row.start_seconds, end_seconds:row.end_seconds, scientific_name:row.scientific_name, confidence:row.confidence, model_name:payload.model_name}));
+    currentRows = payload.detections.filter((row) => row.start_seconds != null && row.end_seconds != null).map((row) => ({...researchMeta(), recording_id:recordingId, start_seconds:row.start_seconds, end_seconds:row.end_seconds, scientific_name:row.scientific_name, confidence:row.confidence, model_name:payload.model_name}));
     renderDetections(payload.detections); results.hidden = false; status.textContent = `${payload.detections.length} candidate detection${payload.detections.length === 1 ? '' : 's'} returned. Review before using as evidence.`;
   } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
 });
 
-downloadButton.addEventListener('click', () => { const fields = ['recording_id','start_seconds','end_seconds','scientific_name','confidence','model_name']; const csv = [fields.join(','), ...currentRows.map((row) => fields.map((field) => csvEscape(row[field])).join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = 'birdnet_predictions.csv'; link.click(); URL.revokeObjectURL(link.href); });
+downloadButton.addEventListener('click', () => { const fields = ['site_id','site_type','hours_since_rain','rainfall_mm','recording_id','start_seconds','end_seconds','scientific_name','confidence','model_name']; const csv = [fields.join(','), ...currentRows.map((row) => fields.map((field) => csvEscape(row[field])).join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = 'ecosound-shift-rain-recovery.csv'; link.click(); URL.revokeObjectURL(link.href); });

@@ -1,4 +1,10 @@
-# EcoSound Shift: field-robust bird-call detection
+# EcoSound Shift: rain-driven soundscape recovery
+
+## Core research question
+
+How quickly does bird acoustic activity recover after rainfall, and does recovery differ between quiet green space and roadside green space? Sample before rain, then at approximately 24, 48, and 72 hours after the event. BirdNET supplies candidate events; human review is required before treating them as evidence.
+
+Every recording should carry `site_id`, `site_type`, `hours_since_rain`, and `rainfall_mm`. These fields make the export usable for recovery curves, mixed-effects models, and site-held-out validation.
 
 ## Portfolio claim
 
