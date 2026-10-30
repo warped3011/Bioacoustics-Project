@@ -14,6 +14,27 @@ fileInput.addEventListener('change', () => {
   fileLabel.textContent = file ? `${file.name} · ${(file.size / 1e6).toFixed(2)} MB` : 'Choose a WAV, MP3, FLAC, or OGG clip';
 });
 
+const dropzone = document.querySelector('.dropzone');
+['dragenter', 'dragover'].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
+  event.preventDefault();
+  dropzone.classList.add('is-dragging');
+  status.textContent = 'Release to analyze this recording.';
+}));
+['dragleave', 'drop'].forEach((eventName) => dropzone.addEventListener(eventName, (event) => {
+  event.preventDefault();
+  dropzone.classList.remove('is-dragging');
+}));
+dropzone.addEventListener('drop', (event) => {
+  const file = [...event.dataTransfer.files].find((candidate) => candidate.type.startsWith('audio/') || /\.(wav|mp3|flac|ogg)$/i.test(candidate.name));
+  if (!file) { status.textContent = 'Drop a WAV, MP3, FLAC, or OGG audio file.'; return; }
+  const transfer = new DataTransfer();
+  transfer.items.add(file);
+  fileInput.files = transfer.files;
+  fileInput.dispatchEvent(new Event('change', {bubbles: true}));
+  document.querySelector('#recording-id').value = file.name.replace(/\.[^.]+$/, '');
+  form.requestSubmit();
+});
+
 document.querySelectorAll('.demo-load').forEach((demoButton) => demoButton.addEventListener('click', async () => {
   demoButton.disabled = true;
   status.textContent = 'Loading the demo recording…';
