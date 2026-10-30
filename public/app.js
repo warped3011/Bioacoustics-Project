@@ -26,7 +26,9 @@ document.querySelectorAll('.demo-load').forEach((demoButton) => demoButton.addEv
     transfer.items.add(file);
     fileInput.files = transfer.files;
     fileLabel.textContent = `${file.name} · ${(file.size / 1e6).toFixed(2)} MB`;
-    status.textContent = 'Demo loaded. Press Analyze recording to continue.';
+    document.querySelector('#recording-id').value = demoButton.dataset.demoName.replace(/\.[^.]+$/, '');
+    status.textContent = demoButton.dataset.autoAnalyze ? 'Demo loaded. Analyzing the sound…' : 'Demo loaded. Press Analyze recording to continue.';
+    if (demoButton.dataset.autoAnalyze) form.requestSubmit();
   } catch (error) {
     status.textContent = `${error.message} You can still play it above or upload your own clip.`;
   } finally { demoButton.disabled = false; }
