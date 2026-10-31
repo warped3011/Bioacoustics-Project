@@ -56,8 +56,15 @@ class handler(BaseHTTPRequestHandler):
             self._json(200, {"detections": detections, "model_name": "BirdNET"})
         except ValueError as error:
             self._json(400, {"error": str(error)})
-        except Exception:
-            self._json(500, {"error": "Analysis failed. Try a shorter, clearer recording."})
+        except Exception as error:
+            # Keep production errors safe while distinguishing the common failure modes.
+            if isinstance(error, TimeoutError):
+                message = "Analysis timed out. Use a shorter clip."
+            elif isinstance(error, ImportError):
+                message = "BirdNET is unavailable in this deployment."
+            else:
+                message = "The BirdNET runtime could not process this clip. Try WAV or MP3 format."
+            self._json(500, {"error": message})
 
     def do_GET(self) -> None:
         self._json(405, {"error": "Use POST."})
