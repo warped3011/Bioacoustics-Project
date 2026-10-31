@@ -9,6 +9,24 @@ const downloadButton = document.querySelector('#download-button');
 let currentRows = [];
 const researchMeta = () => ({site_id: document.querySelector('#site-id').value.trim(), site_type: document.querySelector('#site-type').value, hours_since_rain: document.querySelector('#hours-since-rain').value, rainfall_mm: document.querySelector('#rainfall-mm').value});
 
+const stages = [...document.querySelectorAll('.stage')];
+const recoveryFill = document.querySelector('#recovery-meter-fill');
+const recoveryStatus = document.querySelector('#recovery-status');
+const savedStages = new Set(JSON.parse(localStorage.getItem('ecosound-recovery-stages') || '[]'));
+const updateRecovery = () => {
+  stages.forEach((stage) => stage.classList.toggle('is-done', savedStages.has(stage.dataset.stage)));
+  const count = savedStages.size;
+  recoveryFill.style.width = `${count * 25}%`;
+  recoveryStatus.textContent = `${count} of 4 sampling points complete${count === 4 ? ' · recovery series ready to export' : ''}`;
+};
+stages.forEach((stage) => stage.addEventListener('click', () => {
+  const key = stage.dataset.stage;
+  if (savedStages.has(key)) savedStages.delete(key); else savedStages.add(key);
+  localStorage.setItem('ecosound-recovery-stages', JSON.stringify([...savedStages]));
+  updateRecovery();
+}));
+updateRecovery();
+
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
   fileLabel.textContent = file ? `${file.name} · ${(file.size / 1e6).toFixed(2)} MB` : 'Choose a WAV, MP3, FLAC, or OGG clip';
