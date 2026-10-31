@@ -3,34 +3,31 @@ const fileInput = document.querySelector('#audio-file');
 const fileLabel = document.querySelector('#file-label');
 const status = document.querySelector('#status');
 const results = document.querySelector('#results');
+const answer = document.querySelector('#answer');
 const list = document.querySelector('#detection-list');
-const button = document.querySelector('#analyze-button');
 const downloadButton = document.querySelector('#download-button');
+const uploadAgain = document.querySelector('#upload-again');
+const demoButtons = [...document.querySelectorAll('.demo-load')];
 let currentRows = [];
 let selectedDemoSpecies = '';
-const researchMeta = () => ({site_id: document.querySelector('#site-id').value.trim(), site_type: document.querySelector('#site-type').value, hours_since_rain: document.querySelector('#hours-since-rain').value, rainfall_mm: document.querySelector('#rainfall-mm').value});
 
-const stages = [...document.querySelectorAll('.stage')];
-const recoveryFill = document.querySelector('#recovery-meter-fill');
-const recoveryStatus = document.querySelector('#recovery-status');
-const savedStages = new Set(JSON.parse(localStorage.getItem('ecosound-recovery-stages') || '[]'));
-const updateRecovery = () => {
-  stages.forEach((stage) => stage.classList.toggle('is-done', savedStages.has(stage.dataset.stage)));
-  const count = savedStages.size;
-  recoveryFill.style.width = `${count * 25}%`;
-  recoveryStatus.textContent = `${count} of 4 sampling points complete${count === 4 ? ' · recovery series ready to export' : ''}`;
-};
-stages.forEach((stage) => stage.addEventListener('click', () => {
-  const key = stage.dataset.stage;
-  if (savedStages.has(key)) savedStages.delete(key); else savedStages.add(key);
-  localStorage.setItem('ecosound-recovery-stages', JSON.stringify([...savedStages]));
-  updateRecovery();
-}));
-updateRecovery();
+const setBusy = (busy) => demoButtons.forEach((demoButton) => { demoButton.disabled = busy; });
+const showUpload = (visible) => { form.hidden = !visible; uploadAgain.hidden = visible; };
 
 fileInput.addEventListener('change', () => {
   const file = fileInput.files[0];
-  fileLabel.textContent = file ? `${file.name} · ${(file.size / 1e6).toFixed(2)} MB` : 'Choose a WAV, MP3, FLAC, or OGG clip';
+  fileLabel.textContent = file ? `${file.name} · ${(file.size / 1e6).toFixed(2)} MB` : 'Drop an audio file here or tap to choose';
+  selectedDemoSpecies = '';
+  if (file) form.requestSubmit();
+});
+
+uploadAgain.addEventListener('click', () => {
+  showUpload(true);
+  results.hidden = true;
+  status.textContent = '';
+  fileInput.value = '';
+  fileLabel.textContent = 'Drop an audio file here or tap to choose';
+  form.scrollIntoView({behavior: 'smooth', block: 'center'});
 });
 
 const dropzone = document.querySelector('.dropzone');
@@ -45,62 +42,61 @@ dropzone.addEventListener('click', (event) => { if (event.target !== fileInput) 
   dropzone.classList.remove('is-dragging');
 }));
 dropzone.addEventListener('drop', (event) => {
-  const demoPayload = event.dataTransfer.getData('application/x-ecosound-demo');
-  if (demoPayload) {
-    const demo = JSON.parse(demoPayload);
-    fetch(demo.url).then((response) => response.blob()).then((blob) => {
-      const transfer = new DataTransfer(); transfer.items.add(new File([blob], demo.name, {type: blob.type || 'audio/ogg'})); fileInput.files = transfer.files;
-      selectedDemoSpecies = demo.species; document.querySelector('#recording-id').value = demo.name.replace(/\.[^.]+$/, ''); fileInput.dispatchEvent(new Event('change', {bubbles: true})); form.requestSubmit();
-    }).catch(() => { status.textContent = 'This demo could not be loaded. Try another clip.'; });
-    return;
-  }
   const file = [...event.dataTransfer.files].find((candidate) => candidate.type.startsWith('audio/') || /\.(wav|mp3|flac|ogg)$/i.test(candidate.name));
   if (!file) { status.textContent = 'Drop a WAV, MP3, FLAC, or OGG audio file.'; return; }
   const transfer = new DataTransfer();
   transfer.items.add(file);
   fileInput.files = transfer.files;
   fileInput.dispatchEvent(new Event('change', {bubbles: true}));
-  document.querySelector('#recording-id').value = file.name.replace(/\.[^.]+$/, '');
-  form.requestSubmit();
 });
 
-document.querySelectorAll('.demo-load').forEach((demoButton) => demoButton.addEventListener('click', async () => {
-  demoButton.disabled = true;
+demoButtons.forEach((demoButton) => demoButton.addEventListener('click', async () => {
+  setBusy(true);
+  showUpload(false);
+  results.hidden = true;
   status.textContent = 'Loading the demo recording…';
+  status.scrollIntoView({behavior: 'smooth', block: 'center'});
   try {
-    const source = demoButton.dataset.demoUrl.startsWith('/') ? demoButton.dataset.demoUrl : `/api/demo?url=${encodeURIComponent(demoButton.dataset.demoUrl)}`;
-    const response = await fetch(source);
+    const response = await fetch(demoButton.dataset.demoUrl);
     if (!response.ok) throw Error('Demo audio is unavailable right now.');
     const blob = await response.blob();
     const file = new File([blob], demoButton.dataset.demoName, {type: blob.type || 'audio/ogg'});
     const transfer = new DataTransfer();
     transfer.items.add(file);
     fileInput.files = transfer.files;
-    fileLabel.textContent = `${file.name} · ${(file.size / 1e6).toFixed(2)} MB`;
-    document.querySelector('#recording-id').value = demoButton.dataset.demoName.replace(/\.[^.]+$/, '');
     selectedDemoSpecies = demoButton.dataset.demoSpecies || '';
-    status.textContent = demoButton.dataset.autoAnalyze ? 'Demo loaded. Analyzing the sound…' : 'Demo loaded. Press Analyze recording to continue.';
-    if (demoButton.dataset.autoAnalyze) form.requestSubmit();
+    form.requestSubmit();
   } catch (error) {
     status.textContent = `${error.message} You can still play it above or upload your own clip.`;
-  } finally { demoButton.disabled = false; }
+    setBusy(false);
+  }
 }));
 
-document.querySelectorAll('.demo-card').forEach((card) => {
-  card.draggable = true;
-  card.addEventListener('dragstart', (event) => {
-    const demo = card.querySelector('.demo-load').dataset;
-    event.dataTransfer.setData('application/x-ecosound-demo', JSON.stringify({url: demo.demoUrl, name: demo.demoName, species: demo.demoSpecies || ''}));
-    event.dataTransfer.effectAllowed = 'copy';
-  });
-});
-
 const csvEscape = (value) => { const text = String(value ?? ''); return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; };
+
+function renderAnswer(detections, modelName) {
+  answer.innerHTML = '<h3></h3><p></p>';
+  const [heading, detail] = answer.children;
+  if (!detections.length) {
+    heading.textContent = 'No bird identified with confidence';
+    detail.textContent = 'This does not mean there are no birds in the recording. Try a clearer or longer clip.';
+    return;
+  }
+  const top = detections[0];
+  const name = top.common_name || top.scientific_name;
+  if (modelName === 'Verified demo reference') {
+    heading.textContent = `This is a ${name}`;
+    detail.textContent = `${top.scientific_name}. This name comes from the demo clip's label, not a live BirdNET analysis.`;
+    return;
+  }
+  heading.textContent = `Most likely: ${name}`;
+  detail.textContent = `${top.scientific_name} · ${Math.round(top.confidence * 100)}% BirdNET score. This is an automated suggestion, so listen and check before using it as evidence.`;
+}
 
 function renderDetections(detections) {
   list.innerHTML = '';
   if (!detections.length) { list.innerHTML = "<p class='empty'>No candidate calls reached this score. This is not evidence that the recording contains no birds.</p>"; return; }
-  detections.sort((a, b) => b.confidence - a.confidence).forEach((detection) => {
+  detections.forEach((detection) => {
     const item = document.createElement('article'); item.className = 'detection';
     const time = detection.start_seconds == null ? 'No timestamp returned' : `${detection.start_seconds.toFixed(1)}–${detection.end_seconds.toFixed(1)} s`;
     item.innerHTML = `<div><h4>${detection.common_name || detection.scientific_name}</h4><p>${detection.scientific_name}</p></div><div class="detection-meta"><strong>${Number(detection.confidence).toFixed(2)}</strong><span>${time}</span></div>`;
@@ -110,16 +106,18 @@ function renderDetections(detections) {
 
 form.addEventListener('submit', async (event) => {
   event.preventDefault(); const file = fileInput.files[0]; if (!file) return;
-  if (file.size > 3e6) { status.textContent = 'Choose a clip smaller than 3 MB.'; return; }
-  button.disabled = true; status.textContent = 'Preparing and analyzing audio…'; results.hidden = true;
+  if (file.size > 3e6) { status.textContent = 'Choose a clip smaller than 3 MB.'; setBusy(false); return; }
+  setBusy(true); status.textContent = 'Analyzing the sound…'; results.hidden = true;
   try {
     const bytes = new Uint8Array(await file.arrayBuffer()); let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
-    const response = await fetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:file.name, audio_base64:btoa(binary), demo_species:selectedDemoSpecies, minimum_confidence:Number(document.querySelector('#minimum-confidence').value)})});
+    const response = await fetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:file.name, audio_base64:btoa(binary), demo_species:selectedDemoSpecies})});
     const payload = await response.json(); if (!response.ok) throw Error(payload.error || 'Analysis could not be completed.');
-    const recordingId = document.querySelector('#recording-id').value.trim() || file.name.replace(/\.[^.]+$/, '');
-    currentRows = payload.detections.filter((row) => row.start_seconds != null && row.end_seconds != null).map((row) => ({...researchMeta(), recording_id:recordingId, start_seconds:row.start_seconds, end_seconds:row.end_seconds, scientific_name:row.scientific_name, confidence:row.confidence, model_name:payload.model_name}));
-    renderDetections(payload.detections); results.hidden = false; status.textContent = `${payload.detections.length} candidate detection${payload.detections.length === 1 ? '' : 's'} returned. Review before using as evidence.`;
-  } catch (error) { status.textContent = error.message; } finally { button.disabled = false; }
+    const detections = [...payload.detections].sort((a, b) => b.confidence - a.confidence);
+    const recordingId = file.name.replace(/\.[^.]+$/, '');
+    currentRows = detections.filter((row) => row.start_seconds != null && row.end_seconds != null).map((row) => ({recording_id:recordingId, start_seconds:row.start_seconds, end_seconds:row.end_seconds, scientific_name:row.scientific_name, confidence:row.confidence, model_name:payload.model_name}));
+    renderAnswer(detections, payload.model_name); renderDetections(detections); results.hidden = false; status.textContent = '';
+    results.scrollIntoView({behavior: 'smooth', block: 'center'});
+  } catch (error) { status.textContent = error.message; } finally { setBusy(false); }
 });
 
-downloadButton.addEventListener('click', () => { const fields = ['site_id','site_type','hours_since_rain','rainfall_mm','recording_id','start_seconds','end_seconds','scientific_name','confidence','model_name']; const csv = [fields.join(','), ...currentRows.map((row) => fields.map((field) => csvEscape(row[field])).join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = 'ecosound-shift-rain-recovery.csv'; link.click(); URL.revokeObjectURL(link.href); });
+downloadButton.addEventListener('click', () => { const fields = ['recording_id','start_seconds','end_seconds','scientific_name','confidence','model_name']; const csv = [fields.join(','), ...currentRows.map((row) => fields.map((field) => csvEscape(row[field])).join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = 'ecosound-shift-detections.csv'; link.click(); URL.revokeObjectURL(link.href); });
