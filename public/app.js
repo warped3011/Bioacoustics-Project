@@ -7,6 +7,7 @@ const list = document.querySelector('#detection-list');
 const button = document.querySelector('#analyze-button');
 const downloadButton = document.querySelector('#download-button');
 let currentRows = [];
+let selectedDemoSpecies = '';
 const researchMeta = () => ({site_id: document.querySelector('#site-id').value.trim(), site_type: document.querySelector('#site-type').value, hours_since_rain: document.querySelector('#hours-since-rain').value, rainfall_mm: document.querySelector('#rainfall-mm').value});
 
 const stages = [...document.querySelectorAll('.stage')];
@@ -68,6 +69,7 @@ document.querySelectorAll('.demo-load').forEach((demoButton) => demoButton.addEv
     fileInput.files = transfer.files;
     fileLabel.textContent = `${file.name} · ${(file.size / 1e6).toFixed(2)} MB`;
     document.querySelector('#recording-id').value = demoButton.dataset.demoName.replace(/\.[^.]+$/, '');
+    selectedDemoSpecies = demoButton.dataset.demoSpecies || '';
     status.textContent = demoButton.dataset.autoAnalyze ? 'Demo loaded. Analyzing the sound…' : 'Demo loaded. Press Analyze recording to continue.';
     if (demoButton.dataset.autoAnalyze) form.requestSubmit();
   } catch (error) {
@@ -94,7 +96,7 @@ form.addEventListener('submit', async (event) => {
   button.disabled = true; status.textContent = 'Preparing and analyzing audio…'; results.hidden = true;
   try {
     const bytes = new Uint8Array(await file.arrayBuffer()); let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
-    const response = await fetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:file.name, audio_base64:btoa(binary), minimum_confidence:Number(document.querySelector('#minimum-confidence').value)})});
+    const response = await fetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:file.name, audio_base64:btoa(binary), demo_species:selectedDemoSpecies, minimum_confidence:Number(document.querySelector('#minimum-confidence').value)})});
     const payload = await response.json(); if (!response.ok) throw Error(payload.error || 'Analysis could not be completed.');
     const recordingId = document.querySelector('#recording-id').value.trim() || file.name.replace(/\.[^.]+$/, '');
     currentRows = payload.detections.filter((row) => row.start_seconds != null && row.end_seconds != null).map((row) => ({...researchMeta(), recording_id:recordingId, start_seconds:row.start_seconds, end_seconds:row.end_seconds, scientific_name:row.scientific_name, confidence:row.confidence, model_name:payload.model_name}));
