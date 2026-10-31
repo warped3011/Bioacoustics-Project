@@ -8,7 +8,7 @@ from urllib.request import Request, urlopen
 class handler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         target = parse_qs(urlparse(self.path).query).get("url", [""])[0]
-        if not target.startswith("https://commons.wikimedia.org/"):
+        if not target.startswith(("https://commons.wikimedia.org/", "https://upload.wikimedia.org/")):
             self.send_error(400, "Unsupported demo source")
             return
         try:
