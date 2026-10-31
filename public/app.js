@@ -58,7 +58,8 @@ document.querySelectorAll('.demo-load').forEach((demoButton) => demoButton.addEv
   demoButton.disabled = true;
   status.textContent = 'Loading the demo recording…';
   try {
-    const response = await fetch(`/api/demo?url=${encodeURIComponent(demoButton.dataset.demoUrl)}`);
+    const source = demoButton.dataset.demoUrl.startsWith('/') ? demoButton.dataset.demoUrl : `/api/demo?url=${encodeURIComponent(demoButton.dataset.demoUrl)}`;
+    const response = await fetch(source);
     if (!response.ok) throw Error('Demo audio is unavailable right now.');
     const blob = await response.blob();
     const file = new File([blob], demoButton.dataset.demoName, {type: blob.type || 'audio/ogg'});
