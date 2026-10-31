@@ -45,6 +45,15 @@ dropzone.addEventListener('click', (event) => { if (event.target !== fileInput) 
   dropzone.classList.remove('is-dragging');
 }));
 dropzone.addEventListener('drop', (event) => {
+  const demoPayload = event.dataTransfer.getData('application/x-ecosound-demo');
+  if (demoPayload) {
+    const demo = JSON.parse(demoPayload);
+    fetch(demo.url).then((response) => response.blob()).then((blob) => {
+      const transfer = new DataTransfer(); transfer.items.add(new File([blob], demo.name, {type: blob.type || 'audio/ogg'})); fileInput.files = transfer.files;
+      selectedDemoSpecies = demo.species; document.querySelector('#recording-id').value = demo.name.replace(/\.[^.]+$/, ''); fileInput.dispatchEvent(new Event('change', {bubbles: true})); form.requestSubmit();
+    }).catch(() => { status.textContent = 'This demo could not be loaded. Try another clip.'; });
+    return;
+  }
   const file = [...event.dataTransfer.files].find((candidate) => candidate.type.startsWith('audio/') || /\.(wav|mp3|flac|ogg)$/i.test(candidate.name));
   if (!file) { status.textContent = 'Drop a WAV, MP3, FLAC, or OGG audio file.'; return; }
   const transfer = new DataTransfer();
@@ -76,6 +85,15 @@ document.querySelectorAll('.demo-load').forEach((demoButton) => demoButton.addEv
     status.textContent = `${error.message} You can still play it above or upload your own clip.`;
   } finally { demoButton.disabled = false; }
 }));
+
+document.querySelectorAll('.demo-card').forEach((card) => {
+  card.draggable = true;
+  card.addEventListener('dragstart', (event) => {
+    const demo = card.querySelector('.demo-load').dataset;
+    event.dataTransfer.setData('application/x-ecosound-demo', JSON.stringify({url: demo.demoUrl, name: demo.demoName, species: demo.demoSpecies || ''}));
+    event.dataTransfer.effectAllowed = 'copy';
+  });
+});
 
 const csvEscape = (value) => { const text = String(value ?? ''); return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; };
 
