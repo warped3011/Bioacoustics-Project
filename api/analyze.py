@@ -6,6 +6,7 @@ import base64
 import binascii
 import json
 import tempfile
+import traceback
 from http.server import BaseHTTPRequestHandler
 from pathlib import Path
 
@@ -49,8 +50,6 @@ class handler(BaseHTTPRequestHandler):
             if not 0.05 <= minimum_confidence <= 0.95:
                 raise ValueError("minimum_confidence must be between 0.05 and 0.95.")
             demo_species = str(payload.get("demo_species", "")).strip()
-            filename_hint = filename.casefold()
-            demo_species = demo_species or next((name for marker, name in (("house-crow", "House Crow"), ("asian-koel", "Asian Koel"), ("red-vented-bulbul", "Red-vented Bulbul"), ("common-myna", "Common Myna")) if marker in filename_hint), "")
             if demo_species in {"House Crow", "Asian Koel"}:
                 self._json(200, {"detections": [{"scientific_name": "Corvus splendens" if demo_species == "House Crow" else "Eudynamys scolopaceus", "common_name": demo_species, "confidence": 1.0, "start_seconds": 0.0, "end_seconds": 10.0}], "model_name": "Verified demo reference"})
                 return
@@ -68,6 +67,7 @@ class handler(BaseHTTPRequestHandler):
             self._json(400, {"error": str(error)})
         except Exception as error:
             # Keep production errors safe while distinguishing the common failure modes.
+            traceback.print_exc()
             if isinstance(error, TimeoutError):
                 message = "Analysis timed out. Use a shorter clip."
             elif isinstance(error, ImportError):

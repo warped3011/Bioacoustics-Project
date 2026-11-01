@@ -25,9 +25,11 @@ def _copy_to_writable_runtime(source_package: Path, runtime_base: Path) -> Path:
             return runtime_base
 
         destination = runtime_base
+        # Finished copies are renamed into place with their .ready marker, so a
+        # directory without one is a dead partial copy. Replace it so the model
+        # cached here is reused instead of being downloaded on every run.
+        shutil.rmtree(destination, ignore_errors=True)
         if destination.exists():
-            # A previous process may have stopped during setup. Keep it intact and
-            # use a fresh unique directory rather than trusting a partial copy.
             destination = runtime_base.with_name(f"{runtime_base.name}-{uuid.uuid4().hex[:8]}")
         staging = Path(tempfile.mkdtemp(prefix=f"{runtime_base.name}-", dir=runtime_base.parent))
         try:
@@ -138,7 +140,7 @@ def identify_audio(audio_path: Path, output_dir: Path, *, threads: int = 2,
     if latitude is not None and longitude is not None:
         command.extend(["--lat", str(latitude), "--lon", str(longitude), "--week", "-1"])
     try:
-        result = subprocess.run(command, capture_output=True, text=True, timeout=900, env=environment)
+        result = subprocess.run(command, capture_output=True, encoding="utf-8", errors="replace", timeout=900, env=environment)
     except FileNotFoundError as exc:
         raise RuntimeError(f"Python executable not found: {executable}") from exc
     except subprocess.TimeoutExpired as exc:

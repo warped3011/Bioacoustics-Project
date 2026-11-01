@@ -29,6 +29,26 @@ def test_birdnet_package_is_copied_without_checkpoint_data(tmp_path):
     assert (runtime / ".ready").is_file()
 
 
+def test_unfinished_runtime_is_replaced_and_finished_runtime_is_reused(tmp_path):
+    package = tmp_path / "installed" / "birdnet_analyzer"
+    package.mkdir(parents=True)
+    (package / "__init__.py").write_text("# package", encoding="utf-8")
+    base = tmp_path / "runtime"
+    base.mkdir()
+
+    runtime = _copy_to_writable_runtime(package, base)
+
+    assert runtime == base
+    assert (base / ".ready").is_file()
+
+    cached_model = base / "birdnet_analyzer" / "checkpoints" / "model.tflite"
+    cached_model.parent.mkdir()
+    cached_model.write_bytes(b"large model")
+
+    assert _copy_to_writable_runtime(package, base) == base
+    assert cached_model.is_file()
+
+
 def test_parse_birdnet_cli_csv_with_timestamps(tmp_path):
     csv_file = tmp_path / "detections.csv"
     csv_file.write_text(

@@ -107,7 +107,9 @@ function renderDetections(detections) {
 form.addEventListener('submit', async (event) => {
   event.preventDefault(); const file = fileInput.files[0]; if (!file) return;
   if (file.size > 3e6) { status.textContent = 'Choose a clip smaller than 3 MB.'; setBusy(false); return; }
-  setBusy(true); status.textContent = 'Analyzing the sound…'; results.hidden = true;
+  setBusy(true); results.hidden = true;
+  status.textContent = selectedDemoSpecies ? 'Analyzing the sound…' : 'Analyzing with BirdNET. This can take a few minutes, so keep this page open.';
+  status.classList.toggle('is-working', !selectedDemoSpecies);
   try {
     const bytes = new Uint8Array(await file.arrayBuffer()); let binary = ''; for (const byte of bytes) binary += String.fromCharCode(byte);
     const response = await fetch('/api/analyze', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({filename:file.name, audio_base64:btoa(binary), demo_species:selectedDemoSpecies})});
@@ -117,7 +119,7 @@ form.addEventListener('submit', async (event) => {
     currentRows = detections.filter((row) => row.start_seconds != null && row.end_seconds != null).map((row) => ({recording_id:recordingId, start_seconds:row.start_seconds, end_seconds:row.end_seconds, scientific_name:row.scientific_name, confidence:row.confidence, model_name:payload.model_name}));
     renderAnswer(detections, payload.model_name); renderDetections(detections); results.hidden = false; status.textContent = '';
     results.scrollIntoView({behavior: 'smooth', block: 'center'});
-  } catch (error) { status.textContent = error.message; } finally { setBusy(false); }
+  } catch (error) { status.textContent = error.message; } finally { setBusy(false); status.classList.remove('is-working'); }
 });
 
 downloadButton.addEventListener('click', () => { const fields = ['recording_id','start_seconds','end_seconds','scientific_name','confidence','model_name']; const csv = [fields.join(','), ...currentRows.map((row) => fields.map((field) => csvEscape(row[field])).join(','))].join('\n'); const link = document.createElement('a'); link.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); link.download = 'ecosound-shift-detections.csv'; link.click(); URL.revokeObjectURL(link.href); });
