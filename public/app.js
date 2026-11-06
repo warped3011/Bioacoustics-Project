@@ -72,11 +72,32 @@ demoButtons.forEach((demoButton) => demoButton.addEventListener('click', async (
   }
 }));
 
-const csvEscape = (value) => { const text = String(value ?? ''); return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; };
+const commons = (file) => `https://commons.wikimedia.org/wiki/File:${file}`;
+const BIRD_PHOTOS = {
+  'House Crow': {src: '/demo/birds/house-crow.jpg', credit: 'Pkspks, CC BY 4.0', page: commons('Corvus_splendens.jpg')},
+  'Asian Koel': {src: '/demo/birds/asian-koel.jpg', credit: 'Challiyan, CC BY-SA 4.0', page: commons('Asian_koel.jpg')},
+  'Red-vented Bulbul': {src: '/demo/birds/red-vented-bulbul.jpg', credit: 'Mahmadanesh, CC BY 4.0', page: commons('Red-vented_bulbul_-_Jamnagar_2023-11-13.jpg')},
+  'Common Myna': {src: '/demo/birds/common-myna.jpg', credit: 'Gerrie van Vuuren, CC BY-SA 4.0', page: commons('Acridotheres_tristis00.jpg')},
+};
+
+function birdPhoto(name) {
+  const photo = BIRD_PHOTOS[name];
+  if (!photo) return null;
+  const figure = document.createElement('figure');
+  figure.innerHTML = '<img alt=""><figcaption>Photo: <a target="_blank" rel="noreferrer"></a> · Wikimedia Commons</figcaption>';
+  Object.assign(figure.querySelector('img'), {src: photo.src, alt: `Photo of a ${name}`});
+  Object.assign(figure.querySelector('a'), {href: photo.page, textContent: photo.credit});
+  return figure;
+}
+
+const csvEscape =(value) => { const text = String(value ?? ''); return /[",\n]/.test(text) ? `"${text.replaceAll('"', '""')}"` : text; };
 
 function renderAnswer(detections, modelName) {
-  answer.innerHTML = '<h3></h3><p></p>';
-  const [heading, detail] = answer.children;
+  answer.innerHTML = '<div><h3></h3><p></p></div>';
+  answer.classList.remove('has-photo');
+  const [heading, detail] = answer.firstChild.children;
+  const photo = detections.length && birdPhoto(detections[0].common_name);
+  if (photo) { answer.prepend(photo); answer.classList.add('has-photo'); }
   if (!detections.length) {
     heading.textContent = 'No bird identified with confidence';
     detail.textContent = 'This does not mean there are no birds in the recording. Try a clearer or longer clip.';
@@ -85,7 +106,7 @@ function renderAnswer(detections, modelName) {
   const top = detections[0];
   const name = top.common_name || top.scientific_name;
   if (modelName === 'Verified demo reference') {
-    heading.textContent = `This is a ${name}`;
+    heading.textContent = `This is ${/^[aeiou]/i.test(name) ? 'an' : 'a'} ${name}`;
     detail.textContent = `${top.scientific_name}. This name comes from the demo clip's label, not a live BirdNET analysis.`;
     return;
   }
